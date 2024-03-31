@@ -2,15 +2,12 @@
 
 [![NPM Version][npm-image]][npm-url]
 [![NPM Downloads][downloads-image]][downloads-url]
-[![CI pipeline][ci-image]][ci-url]
 [![Opencollective financial contributors][opencollective-contributors]][opencollective-url]
 
 [npm-image]: https://img.shields.io/npm/v/node-build-engine.svg
 [npm-url]: https://npmjs.org/package/node-build-engine
 [downloads-image]: https://img.shields.io/npm/dm/node-build-engine.svg
 [downloads-url]: https://npmjs.org/package/node-build-engine
-[ci-image]: https://github.com/ismael1361/node-build-engine/actions/workflows/ci.yml/badge.svg
-[ci-url]: https://github.com/ismael1361/node-build-engine/actions/workflows/ci.yml
 [opencollective-contributors]: https://opencollective.com/node-build-engine/tiers/badge.svg
 [opencollective-url]: https://opencollective.com/node-build-engine
 
