@@ -1,0 +1,85 @@
+{
+	"name": "node-build-engine",
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Um mecanismo de construção do node para construir aplicativos de node e bibliotecas de node com webpack e/ou browserify para diferentes ambientes como CommonJS, ESM, UMD, etc...",
+	"comments": {
+		"browser": "As substituições de arquivo webpack/browserify foram movidas para package.json em dist/cjs e dist/esm. Veja README.md para mais informações",
+		"exports": "Consulte README.md para obter mais informações sobre distribuições ESM e CommonJS exportadas e usadas"
+	},
+	"main": "dist/cjs/index.js",
+	"module": "./dist/esm/index.js",
+	"types": "./dist/types/index.d.ts",
+	"files": [
+		"dist/"
+	],
+	"exports": {
+		".": {
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js",
+			"types": "./dist/types/index.d.ts"
+		}
+	},
+	"private": false,
+	"scripts": {
+		"test": "node ./dist/cjs/index.js ./test/tsconfig.json",
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"build": "npm run build:clean && npm run build:esm && npm run build:cjs && npm run build:packages && echo Done!",
+		"build:clean": "rimraf dist",
+		"build:esm": "tsc -p tsconfig-esm.json && npx tsc-esm-fix ---target='dist/esm'",
+		"build:cjs": "tsc -p tsconfig-cjs.json",
+		"build:packages": "bash ./create-package-files",
+		"browserify": "browserify dist/cjs/index.js -o dist/browser.js --standalone ivipbase --ignore rxjs --ignore process --ignore buffer && terser dist/browser.js -o dist/browser.min.js",
+		"npm:publish": "npm run build && npm pack && npm publish --access public",
+		"npm:link": "npm link"
+	},
+	"keywords": [
+		"node",
+		"build",
+		"engine",
+		"webpack",
+		"browserify",
+		"commonjs",
+		"esm",
+		"umd",
+		"cjs",
+		"amd",
+		"iife",
+		"nodejs",
+		"node.js",
+		"node-js",
+		"node.js build",
+		"node.js build engine",
+		"node.js build system",
+		"node.js build tool"
+	],
+	"author": "ISMAEL1361 <ismael1361@gmail.com> (https://github.com/ismael1361)",
+	"license": "MIT",
+	"repository": "github:ismael1361/node-build-engine",
+	"bugs": {
+		"url": "https://github.com/ismael1361/node-build-engine/issues"
+	},
+	"homepage": "https://github.com/ismael1361/node-build-engine#readme",
+	"devDependencies": {
+		"@types/browserify": "^12.0.40",
+		"@types/fs-extra": "11.0.4",
+		"@types/node": "20.4.8",
+		"@typescript-eslint/eslint-plugin": "6.2.1",
+		"@typescript-eslint/parser": "6.2.1",
+		"browserify": "17.0.0",
+		"eslint": "8.46.0",
+		"esm": "3.2.25",
+		"rimraf": "5.0.1",
+		"terser": "5.15.1",
+		"ts-node": "10.9.1",
+		"tsc-esm-fix": "2.20.14",
+		"typescript": "5.1.6"
+	},
+	"dependencies": {
+		"cuid": "3.0.0",
+		"fs-extra": "11.2.0",
+		"glob": "^10.3.12",
+		"rxjs": "7.8.1"
+	}
+}

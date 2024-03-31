@@ -1,0 +1,9 @@
+{
+	"name": "node-build-engine",
+	"version": "1.0.0",
+	"private": false,
+	"main": "./src/index.ts",
+	"scripts": {
+		"start": "node ../dist/cjs/index.js"
+	}
+}

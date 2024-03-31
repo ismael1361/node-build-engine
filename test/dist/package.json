@@ -1,0 +1,40 @@
+{
+    "name": "node-build-engine",
+    "version": "1.0.0",
+    "description": "",
+    "comments": "",
+    "main": "./csj/index.js",
+    "module": "./esm/index.js",
+    "types": "./types/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./esm/index.js",
+            "require": "./csj/index.js",
+            "types": "./types/index.d.ts"
+        },
+        "./esm": {
+            "import": "./esm/index.js",
+            "require": "./csj/index.js",
+            "types": "./types/index.d.ts"
+        },
+        "./csj": {
+            "import": "./esm/index.js",
+            "require": "./csj/index.js",
+            "types": "./types/index.d.ts"
+        }
+    },
+    "browser": {
+        "./esm/index.js": "./esm/browser.js",
+        "./csj/index.js": "./csj/browser.js"
+    },
+    "private": false,
+    "repository": "",
+    "scripts": {},
+    "keywords": [],
+    "author": "",
+    "license": "",
+    "bugs": {},
+    "homepage": "",
+    "dependencies": {},
+    "devDependencies": {}
+}
