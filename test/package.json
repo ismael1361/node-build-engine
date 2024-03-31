@@ -4,6 +4,8 @@
 	"private": false,
 	"main": "./src/index.ts",
 	"scripts": {
-		"start": "node ../dist/cjs/index.js"
+		"start": "node ../dist/cjs/index.js",
+		"build": "npx node-build-engine",
+		"test": "node-build-engine"
 	}
 }

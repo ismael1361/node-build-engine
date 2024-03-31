@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -25,7 +26,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
-var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
+var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
 Object.defineProperty(exports, "__esModule", { value: true });
 const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
@@ -185,9 +186,10 @@ generateProgram("esm");
 generateProgram("csj");
 fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "package.json"), JSON.stringify({
     name: (_c = package_json.name) !== null && _c !== void 0 ? _c : "",
-    version: (_d = package_json.version) !== null && _d !== void 0 ? _d : "1.0.0",
-    description: (_e = package_json.description) !== null && _e !== void 0 ? _e : "",
-    comments: (_f = package_json.comments) !== null && _f !== void 0 ? _f : "",
+    type: (_d = package_json.type) !== null && _d !== void 0 ? _d : "module",
+    version: (_e = package_json.version) !== null && _e !== void 0 ? _e : "1.0.0",
+    description: (_f = package_json.description) !== null && _f !== void 0 ? _f : "",
+    comments: (_g = package_json.comments) !== null && _g !== void 0 ? _g : "",
     main: "./csj/index.js",
     module: "./esm/index.js",
     types: "./types/index.d.ts",
@@ -209,15 +211,20 @@ fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "package.json"),
         },
     },
     browser: allBrowserFiles,
-    private: (_g = package_json.private) !== null && _g !== void 0 ? _g : false,
-    repository: (_h = package_json.repository) !== null && _h !== void 0 ? _h : "",
-    scripts: {},
-    keywords: (_j = package_json.keywords) !== null && _j !== void 0 ? _j : [],
-    author: (_k = package_json.author) !== null && _k !== void 0 ? _k : "",
-    license: (_l = package_json.license) !== null && _l !== void 0 ? _l : "",
-    bugs: (_m = package_json.bugs) !== null && _m !== void 0 ? _m : {},
-    homepage: (_o = package_json.homepage) !== null && _o !== void 0 ? _o : "",
-    dependencies: (_p = package_json.dependencies) !== null && _p !== void 0 ? _p : {},
-    devDependencies: (_q = package_json.devDependencies) !== null && _q !== void 0 ? _q : {},
+    private: (_h = package_json.private) !== null && _h !== void 0 ? _h : false,
+    repository: (_j = package_json.repository) !== null && _j !== void 0 ? _j : "",
+    bin: (_k = package_json.bin) !== null && _k !== void 0 ? _k : {
+        [(_l = package_json.name) !== null && _l !== void 0 ? _l : "module"]: "./csj/index.js",
+    },
+    scripts: {
+        start: "node ./csj/index.js",
+    },
+    keywords: (_m = package_json.keywords) !== null && _m !== void 0 ? _m : [],
+    author: (_o = package_json.author) !== null && _o !== void 0 ? _o : "",
+    license: (_p = package_json.license) !== null && _p !== void 0 ? _p : "",
+    bugs: (_q = package_json.bugs) !== null && _q !== void 0 ? _q : {},
+    homepage: (_r = package_json.homepage) !== null && _r !== void 0 ? _r : "",
+    dependencies: (_s = package_json.dependencies) !== null && _s !== void 0 ? _s : {},
+    devDependencies: (_t = package_json.devDependencies) !== null && _t !== void 0 ? _t : {},
 }, null, 4), "utf-8");
 //# sourceMappingURL=index.js.map

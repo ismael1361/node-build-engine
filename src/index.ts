@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import path from "path";
 import fs from "fs-extra";
 import ts from "typescript";
@@ -219,7 +221,12 @@ fs.writeFileSync(
 			browser: allBrowserFiles,
 			private: package_json.private ?? false,
 			repository: package_json.repository ?? "",
-			scripts: {},
+			bin: package_json.bin ?? {
+				[package_json.name ?? "module"]: "./csj/index.js",
+			},
+			scripts: {
+				start: "node ./csj/index.js",
+			},
 			keywords: package_json.keywords ?? [],
 			author: package_json.author ?? "",
 			license: package_json.license ?? "",

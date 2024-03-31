@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -181,6 +182,7 @@ generateProgram("esm");
 generateProgram("csj");
 fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "package.json"), JSON.stringify({
     name: package_json.name ?? "",
+    type: package_json.type ?? "module",
     version: package_json.version ?? "1.0.0",
     description: package_json.description ?? "",
     comments: package_json.comments ?? "",
@@ -207,7 +209,12 @@ fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "package.json"),
     browser: allBrowserFiles,
     private: package_json.private ?? false,
     repository: package_json.repository ?? "",
-    scripts: {},
+    bin: package_json.bin ?? {
+        [package_json.name ?? "module"]: "./csj/index.js",
+    },
+    scripts: {
+        start: "node ./csj/index.js",
+    },
     keywords: package_json.keywords ?? [],
     author: package_json.author ?? "",
     license: package_json.license ?? "",

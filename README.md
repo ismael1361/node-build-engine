@@ -26,6 +26,10 @@ Do NPM para uso programático:
 
     npm install node-build-engine
 
+Do NPX para uso como um aplicativo de linha de comando:
+
+    npx node-build-engine
+
 # Uso de linha de comando
 
 <!-- CLI_USAGE:START -->

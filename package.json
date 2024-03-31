@@ -1,6 +1,6 @@
 {
 	"name": "node-build-engine",
-	"version": "1.0.0",
+	"version": "1.0.2",
 	"type": "module",
 	"description": "Um mecanismo de construção do node para construir aplicativos de node e bibliotecas de node com webpack e/ou browserify para diferentes ambientes como CommonJS, ESM, UMD, etc...",
 	"comments": {
@@ -21,7 +21,11 @@
 		}
 	},
 	"private": false,
+	"bin": {
+		"node-build-engine": "./dist/cjs/index.js"
+	},
 	"scripts": {
+		"start": "node ./dist/cjs/index.js",
 		"test": "node ./dist/cjs/index.js ./test/tsconfig.json",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
@@ -80,6 +84,7 @@
 		"cuid": "3.0.0",
 		"fs-extra": "11.2.0",
 		"glob": "^10.3.12",
+		"link": "^2.1.0",
 		"rxjs": "7.8.1"
 	}
 }

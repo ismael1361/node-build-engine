@@ -1,5 +1,6 @@
 {
     "name": "node-build-engine",
+    "type": "module",
     "version": "1.0.0",
     "description": "",
     "comments": "",
@@ -29,7 +30,12 @@
     },
     "private": false,
     "repository": "",
-    "scripts": {},
+    "bin": {
+        "node-build-engine": "./csj/index.js"
+    },
+    "scripts": {
+        "start": "node ./csj/index.js"
+    },
     "keywords": [],
     "author": "",
     "license": "",
