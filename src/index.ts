@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import path from "path";
 import fs from "fs-extra";
 import ts from "typescript";
@@ -7,6 +6,7 @@ import { TSConfigContent } from "./types";
 import * as glob from "glob";
 import browserify from "browserify";
 import terser from "terser";
+import webpack from "webpack";
 
 const tsconfig_path = path.join(process.cwd(), process.argv.slice(2)[0] ?? "tsconfig.json");
 const root_path = path.dirname(tsconfig_path);
@@ -27,7 +27,10 @@ if (fs.existsSync(dist_path)) {
 
 fs.mkdirSync(dist_path);
 
+console.log(tsconfig_path);
 const tsconfig: TSConfigContent = JSON.parse(fs.readFileSync(tsconfig_path, "utf-8"));
+
+console.log(package_path);
 const package_json = JSON.parse(fs.readFileSync(package_path, "utf-8"));
 
 const rootNames = tsconfig.files || [];
@@ -50,6 +53,12 @@ function matchFiles(patterns: string[], excludePatterns: string[] = []) {
 const allFiles = rootNames.concat(matchFiles(includes, excludes)).map((file) => path.join(root_path, file));
 
 const allBrowserFiles: Record<string, string> = {};
+
+const main_dir = package_json.main ? path.resolve(path.dirname(package_path), package_json.main) : undefined;
+const browser_dir = package_json.browser ? path.resolve(path.dirname(package_path), package_json.browser) : undefined;
+const module_dir = package_json.module ? path.resolve(path.dirname(package_path), package_json.module) : main_dir;
+
+let rootDir = tsconfig.compilerOptions?.rootDir ?? "";
 
 const generateProgram = (type: "esm" | "csj"): void => {
 	let { compilerOptions = {}, browser = {}, browserify: browserifyOptions } = { ...tsconfig };
@@ -75,6 +84,8 @@ const generateProgram = (type: "esm" | "csj"): void => {
 		outDir: path.join(dist_path, type),
 		declarationDir: type === "esm" ? path.join(dist_path, "types") : undefined,
 	};
+
+	rootDir = options.rootDir;
 
 	const host = ts.createCompilerHost(options);
 	const program = ts.createProgram(allFiles, options, host);
@@ -112,16 +123,61 @@ const generateProgram = (type: "esm" | "csj"): void => {
 		}
 	}
 
+	const main_path = main_dir
+		? main_dir
+				.replace(options.rootDir, ".\\")
+				.replace(/\\+/gi, "/")
+				.replace(/\.tsx?$/, ".js")
+		: undefined;
+
+	const browser_path = browser_dir
+		? browser_dir
+				.replace(options.rootDir, ".\\")
+				.replace(/\\+/gi, "/")
+				.replace(/\.tsx?$/, ".js")
+		: undefined;
+
+	const module_path = module_dir
+		? module_dir
+				.replace(options.rootDir, ".\\")
+				.replace(/\\+/gi, "/")
+				.replace(/\.tsx?$/, ".js")
+		: undefined;
+
+	if (main_path && browser_path) {
+		const m = path.resolve(options.outDir, main_path).replace(path.dirname(options.outDir), ".\\").replace(/\\+/gi, "/");
+		const b = path.resolve(options.outDir, browser_path).replace(path.dirname(options.outDir), ".\\").replace(/\\+/gi, "/");
+
+		if (!(m in allBrowserFiles)) {
+			allBrowserFiles[m] = b;
+		}
+	}
+
 	fs.writeFileSync(
 		path.join(options.outDir, "package.json"),
 		`{
     "type": "${type === "esm" ? "module" : "commonjs"}",
-    "types": "../types/index.d.ts"${
-		Object.keys(browserFiles).length > 0
-			? `,
-    "browser": ${JSON.stringify(browserFiles, null, 4)}`
+    ${
+		main_path
+			? `"main": "${main_path}",
+    `
 			: ""
-	}
+	}${
+			browser_path
+				? `"browser": "${browser_path}",
+    `
+				: ""
+		}${
+			module_path
+				? `"module": "${module_path}",
+    `
+				: ""
+		}"types": "../types/index.d.ts"${
+			Object.keys(browserFiles).length > 0
+				? `,
+    "browser": ${JSON.stringify(browserFiles, null, 4)}`
+				: ""
+		}
 }`,
 		"utf-8",
 	);
@@ -142,35 +198,36 @@ const generateProgram = (type: "esm" | "csj"): void => {
 			.filter((p) => fs.existsSync(p));
 
 		if (Array.isArray(browserifyOptions.entries) && browserifyOptions.entries.length > 0) {
-			browserify({
-				entries: browserifyOptions.entries,
-				standalone: browserifyOptions.standalone ?? package_json.name ?? "module",
-				ignoreTransform: browserifyOptions.ignore ?? [],
-				debug: browserifyOptions.debug ?? true,
-				bundleExternal: false,
-				cache: {},
-				packageCache: {},
-				basedir: options.outDir,
-				insertGlobals: browserifyOptions.insertGlobals ?? false,
-				detectGlobals: browserifyOptions.detectGlobals ?? true,
-				ignoreMissing: browserifyOptions.ignoreMissing ?? false,
-				extensions: browserifyOptions.extensions,
-				noParse: browserifyOptions.noParse,
-				externalRequireName: browserifyOptions.externalRequireName,
-			}).bundle((err, src) => {
-				if (err) {
-					console.error(err);
+			webpack({
+				mode: "production",
+				target: "web",
+				entry: browserifyOptions.entries,
+				output: {
+					path: path.join(dist_path, "bundle"),
+					filename: "index.js",
+					library: browserifyOptions.standalone ?? package_json.name ?? "module", // Especifique o nome da biblioteca UMD
+					libraryTarget: "umd", // Gere no formato UMD
+					globalObject: "this", // Corrija o erro de 'window is not defined'
+				},
+				optimization: {
+					minimize: false,
+				},
+			}).run((err, stats) => {
+				if (err || !stats) {
+					console.error(err ?? "An error occurred while bundling");
 					process.exit(1);
 				}
+
+				const src = fs.readFileSync(path.join(dist_path, "bundle", "index.js"));
 
 				if (!fs.existsSync(path.join(dist_path, "bundle"))) {
 					fs.mkdirSync(path.join(dist_path, "bundle"));
 				}
 
-				let [code = "", sourceMapping = ""] = src.toString().split("//# sourceMappingURL=");
+				// let [code = "", sourceMapping = ""] = src.toString().split("//# sourceMappingURL=");
 
-				fs.writeFileSync(path.join(dist_path, "bundle", "index.js"), code + "//# sourceMappingURL=index.js.map", "utf-8");
-				fs.writeFileSync(path.join(dist_path, "bundle", "index.js.map"), Buffer.from(sourceMapping.split(",").pop() ?? "", "base64").toString(), "utf-8");
+				// fs.writeFileSync(path.join(dist_path, "bundle", "index.js"), code + "//# sourceMappingURL=index.js.map", "utf-8");
+				// fs.writeFileSync(path.join(dist_path, "bundle", "index.js.map"), Buffer.from(sourceMapping.split(",").pop() ?? "", "base64").toString(), "utf-8");
 
 				terser
 					.minify(src.toString())
@@ -182,6 +239,47 @@ const generateProgram = (type: "esm" | "csj"): void => {
 						process.exit(1);
 					});
 			});
+
+			// browserify({
+			// 	entries: browserifyOptions.entries,
+			// 	standalone: browserifyOptions.standalone ?? package_json.name ?? "module",
+			// 	ignoreTransform: browserifyOptions.ignore ?? [],
+			// 	debug: browserifyOptions.debug ?? true,
+			// 	bundleExternal: false,
+			// 	cache: {},
+			// 	packageCache: {},
+			// 	basedir: options.outDir,
+			// 	insertGlobals: browserifyOptions.insertGlobals ?? false,
+			// 	detectGlobals: browserifyOptions.detectGlobals ?? true,
+			// 	ignoreMissing: browserifyOptions.ignoreMissing ?? false,
+			// 	extensions: browserifyOptions.extensions,
+			// 	noParse: browserifyOptions.noParse,
+			// 	externalRequireName: browserifyOptions.externalRequireName,
+			// }).bundle((err, src) => {
+			// 	if (err) {
+			// 		console.error(err);
+			// 		process.exit(1);
+			// 	}
+
+			// 	if (!fs.existsSync(path.join(dist_path, "bundle"))) {
+			// 		fs.mkdirSync(path.join(dist_path, "bundle"));
+			// 	}
+
+			// 	let [code = "", sourceMapping = ""] = src.toString().split("//# sourceMappingURL=");
+
+			// 	fs.writeFileSync(path.join(dist_path, "bundle", "index.js"), code + "//# sourceMappingURL=index.js.map", "utf-8");
+			// 	fs.writeFileSync(path.join(dist_path, "bundle", "index.js.map"), Buffer.from(sourceMapping.split(",").pop() ?? "", "base64").toString(), "utf-8");
+
+			// 	terser
+			// 		.minify(src.toString())
+			// 		.then((result) => {
+			// 			fs.writeFileSync(path.join(dist_path, "bundle", "index.min.js"), result.code ?? "", "utf-8");
+			// 		})
+			// 		.catch((err) => {
+			// 			console.error(err);
+			// 			process.exit(1);
+			// 		});
+			// });
 		}
 	}
 };
@@ -189,8 +287,12 @@ const generateProgram = (type: "esm" | "csj"): void => {
 generateProgram("esm");
 generateProgram("csj");
 
+const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
+const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
+const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;
+
 fs.writeFileSync(
-	path.join(dist_path, "package.json"),
+	path.resolve(dist_path, "package.json"),
 	JSON.stringify(
 		{
 			name: package_json.name ?? "",
@@ -198,27 +300,27 @@ fs.writeFileSync(
 			version: package_json.version ?? "1.0.0",
 			description: package_json.description ?? "",
 			comments: package_json.comments ?? "",
-			main: "./csj/index.js",
-			module: "./esm/index.js",
+			main: package_main ?? "./csj/index.js",
+			module: package_module ?? "./esm/index.js",
 			types: "./types/index.d.ts",
 			exports: {
 				".": {
-					import: "./esm/index.js",
-					require: "./csj/index.js",
+					import: package_module ?? "./esm/index.js",
+					require: package_main ?? "./csj/index.js",
 					types: "./types/index.d.ts",
 				},
 				"./esm": {
-					import: "./esm/index.js",
-					require: "./csj/index.js",
+					import: package_module ?? "./esm/index.js",
+					require: package_main ?? "./csj/index.js",
 					types: "./types/index.d.ts",
 				},
 				"./csj": {
-					import: "./esm/index.js",
-					require: "./csj/index.js",
+					import: package_module ?? "./esm/index.js",
+					require: package_main ?? "./csj/index.js",
 					types: "./types/index.d.ts",
 				},
 			},
-			browser: allBrowserFiles,
+			browser: package_browser ?? allBrowserFiles,
 			private: package_json.private ?? false,
 			repository: package_json.repository ?? "",
 			bin: package_json.bin ?? {

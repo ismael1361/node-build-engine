@@ -1,5 +1,7 @@
 {
     "type": "module",
+    "main": "./index.js",
+    "module": "./index.js",
     "types": "../types/index.d.ts",
     "browser": {
     "./index.js": "./browser.js"

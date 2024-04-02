@@ -31,8 +31,8 @@ const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const typescript_1 = __importDefault(require("typescript"));
 const glob = __importStar(require("glob"));
-const browserify_1 = __importDefault(require("browserify"));
 const terser_1 = __importDefault(require("terser"));
+const webpack_1 = __importDefault(require("webpack"));
 const tsconfig_path = path_1.default.join(process.cwd(), process.argv.slice(2)[0] ?? "tsconfig.json");
 const root_path = path_1.default.dirname(tsconfig_path);
 const dist_path = path_1.default.join(root_path, "dist");
@@ -47,7 +47,9 @@ if (fs_extra_1.default.existsSync(dist_path)) {
     fs_extra_1.default.removeSync(dist_path);
 }
 fs_extra_1.default.mkdirSync(dist_path);
+console.log(tsconfig_path);
 const tsconfig = JSON.parse(fs_extra_1.default.readFileSync(tsconfig_path, "utf-8"));
+console.log(package_path);
 const package_json = JSON.parse(fs_extra_1.default.readFileSync(package_path, "utf-8"));
 const rootNames = tsconfig.files || [];
 const includes = tsconfig.include || [];
@@ -66,6 +68,10 @@ function matchFiles(patterns, excludePatterns = []) {
 // Obtém todos os arquivos incluídos com base no tsconfig.json
 const allFiles = rootNames.concat(matchFiles(includes, excludes)).map((file) => path_1.default.join(root_path, file));
 const allBrowserFiles = {};
+const main_dir = package_json.main ? path_1.default.resolve(path_1.default.dirname(package_path), package_json.main) : undefined;
+const browser_dir = package_json.browser ? path_1.default.resolve(path_1.default.dirname(package_path), package_json.browser) : undefined;
+const module_dir = package_json.module ? path_1.default.resolve(path_1.default.dirname(package_path), package_json.module) : main_dir;
+let rootDir = tsconfig.compilerOptions?.rootDir ?? "";
 const generateProgram = (type) => {
     let { compilerOptions = {}, browser = {}, browserify: browserifyOptions } = { ...tsconfig };
     const options = {
@@ -89,6 +95,7 @@ const generateProgram = (type) => {
         outDir: path_1.default.join(dist_path, type),
         declarationDir: type === "esm" ? path_1.default.join(dist_path, "types") : undefined,
     };
+    rootDir = options.rootDir;
     const host = typescript_1.default.createCompilerHost(options);
     const program = typescript_1.default.createProgram(allFiles, options, host);
     const result = program.emit();
@@ -121,9 +128,43 @@ const generateProgram = (type) => {
             allBrowserFiles[nodeFile.replace(options.outDir, `.\\${type}\\`).replaceAll(/\\+/gi, "/")] = browserFile.replace(options.outDir, `.\\${type}\\`).replace(/\\+/gi, "/");
         }
     }
+    const main_path = main_dir
+        ? main_dir
+            .replace(options.rootDir, ".\\")
+            .replace(/\\+/gi, "/")
+            .replace(/\.tsx?$/, ".js")
+        : undefined;
+    const browser_path = browser_dir
+        ? browser_dir
+            .replace(options.rootDir, ".\\")
+            .replace(/\\+/gi, "/")
+            .replace(/\.tsx?$/, ".js")
+        : undefined;
+    const module_path = module_dir
+        ? module_dir
+            .replace(options.rootDir, ".\\")
+            .replace(/\\+/gi, "/")
+            .replace(/\.tsx?$/, ".js")
+        : undefined;
+    if (main_path && browser_path) {
+        const m = path_1.default.resolve(options.outDir, main_path).replace(path_1.default.dirname(options.outDir), ".\\").replace(/\\+/gi, "/");
+        const b = path_1.default.resolve(options.outDir, browser_path).replace(path_1.default.dirname(options.outDir), ".\\").replace(/\\+/gi, "/");
+        if (!(m in allBrowserFiles)) {
+            allBrowserFiles[m] = b;
+        }
+    }
     fs_extra_1.default.writeFileSync(path_1.default.join(options.outDir, "package.json"), `{
     "type": "${type === "esm" ? "module" : "commonjs"}",
-    "types": "../types/index.d.ts"${Object.keys(browserFiles).length > 0
+    ${main_path
+        ? `"main": "${main_path}",
+    `
+        : ""}${browser_path
+        ? `"browser": "${browser_path}",
+    `
+        : ""}${module_path
+        ? `"module": "${module_path}",
+    `
+        : ""}"types": "../types/index.d.ts"${Object.keys(browserFiles).length > 0
         ? `,
     "browser": ${JSON.stringify(browserFiles, null, 4)}`
         : ""}
@@ -139,32 +180,32 @@ const generateProgram = (type) => {
             .map((p) => path_1.default.resolve(options.outDir, p).replace(/\.tsx?$/, ".js"))
             .filter((p) => fs_extra_1.default.existsSync(p));
         if (Array.isArray(browserifyOptions.entries) && browserifyOptions.entries.length > 0) {
-            (0, browserify_1.default)({
-                entries: browserifyOptions.entries,
-                standalone: browserifyOptions.standalone ?? package_json.name ?? "module",
-                ignoreTransform: browserifyOptions.ignore ?? [],
-                debug: browserifyOptions.debug ?? true,
-                bundleExternal: false,
-                cache: {},
-                packageCache: {},
-                basedir: options.outDir,
-                insertGlobals: browserifyOptions.insertGlobals ?? false,
-                detectGlobals: browserifyOptions.detectGlobals ?? true,
-                ignoreMissing: browserifyOptions.ignoreMissing ?? false,
-                extensions: browserifyOptions.extensions,
-                noParse: browserifyOptions.noParse,
-                externalRequireName: browserifyOptions.externalRequireName,
-            }).bundle((err, src) => {
-                if (err) {
-                    console.error(err);
+            (0, webpack_1.default)({
+                mode: "production",
+                target: "web",
+                entry: browserifyOptions.entries,
+                output: {
+                    path: path_1.default.join(dist_path, "bundle"),
+                    filename: "index.js",
+                    library: browserifyOptions.standalone ?? package_json.name ?? "module",
+                    libraryTarget: "umd",
+                    globalObject: "this", // Corrija o erro de 'window is not defined'
+                },
+                optimization: {
+                    minimize: false,
+                },
+            }).run((err, stats) => {
+                if (err || !stats) {
+                    console.error(err ?? "An error occurred while bundling");
                     process.exit(1);
                 }
+                const src = fs_extra_1.default.readFileSync(path_1.default.join(dist_path, "bundle", "index.js"));
                 if (!fs_extra_1.default.existsSync(path_1.default.join(dist_path, "bundle"))) {
                     fs_extra_1.default.mkdirSync(path_1.default.join(dist_path, "bundle"));
                 }
-                let [code = "", sourceMapping = ""] = src.toString().split("//# sourceMappingURL=");
-                fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "bundle", "index.js"), code + "//# sourceMappingURL=index.js.map", "utf-8");
-                fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "bundle", "index.js.map"), Buffer.from(sourceMapping.split(",").pop() ?? "", "base64").toString(), "utf-8");
+                // let [code = "", sourceMapping = ""] = src.toString().split("//# sourceMappingURL=");
+                // fs.writeFileSync(path.join(dist_path, "bundle", "index.js"), code + "//# sourceMappingURL=index.js.map", "utf-8");
+                // fs.writeFileSync(path.join(dist_path, "bundle", "index.js.map"), Buffer.from(sourceMapping.split(",").pop() ?? "", "base64").toString(), "utf-8");
                 terser_1.default
                     .minify(src.toString())
                     .then((result) => {
@@ -175,38 +216,77 @@ const generateProgram = (type) => {
                     process.exit(1);
                 });
             });
+            // browserify({
+            // 	entries: browserifyOptions.entries,
+            // 	standalone: browserifyOptions.standalone ?? package_json.name ?? "module",
+            // 	ignoreTransform: browserifyOptions.ignore ?? [],
+            // 	debug: browserifyOptions.debug ?? true,
+            // 	bundleExternal: false,
+            // 	cache: {},
+            // 	packageCache: {},
+            // 	basedir: options.outDir,
+            // 	insertGlobals: browserifyOptions.insertGlobals ?? false,
+            // 	detectGlobals: browserifyOptions.detectGlobals ?? true,
+            // 	ignoreMissing: browserifyOptions.ignoreMissing ?? false,
+            // 	extensions: browserifyOptions.extensions,
+            // 	noParse: browserifyOptions.noParse,
+            // 	externalRequireName: browserifyOptions.externalRequireName,
+            // }).bundle((err, src) => {
+            // 	if (err) {
+            // 		console.error(err);
+            // 		process.exit(1);
+            // 	}
+            // 	if (!fs.existsSync(path.join(dist_path, "bundle"))) {
+            // 		fs.mkdirSync(path.join(dist_path, "bundle"));
+            // 	}
+            // 	let [code = "", sourceMapping = ""] = src.toString().split("//# sourceMappingURL=");
+            // 	fs.writeFileSync(path.join(dist_path, "bundle", "index.js"), code + "//# sourceMappingURL=index.js.map", "utf-8");
+            // 	fs.writeFileSync(path.join(dist_path, "bundle", "index.js.map"), Buffer.from(sourceMapping.split(",").pop() ?? "", "base64").toString(), "utf-8");
+            // 	terser
+            // 		.minify(src.toString())
+            // 		.then((result) => {
+            // 			fs.writeFileSync(path.join(dist_path, "bundle", "index.min.js"), result.code ?? "", "utf-8");
+            // 		})
+            // 		.catch((err) => {
+            // 			console.error(err);
+            // 			process.exit(1);
+            // 		});
+            // });
         }
     }
 };
 generateProgram("esm");
 generateProgram("csj");
-fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, "package.json"), JSON.stringify({
+const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
+const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
+const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;
+fs_extra_1.default.writeFileSync(path_1.default.resolve(dist_path, "package.json"), JSON.stringify({
     name: package_json.name ?? "",
     type: package_json.type ?? "module",
     version: package_json.version ?? "1.0.0",
     description: package_json.description ?? "",
     comments: package_json.comments ?? "",
-    main: "./csj/index.js",
-    module: "./esm/index.js",
+    main: package_main ?? "./csj/index.js",
+    module: package_module ?? "./esm/index.js",
     types: "./types/index.d.ts",
     exports: {
         ".": {
-            import: "./esm/index.js",
-            require: "./csj/index.js",
+            import: package_module ?? "./esm/index.js",
+            require: package_main ?? "./csj/index.js",
             types: "./types/index.d.ts",
         },
         "./esm": {
-            import: "./esm/index.js",
-            require: "./csj/index.js",
+            import: package_module ?? "./esm/index.js",
+            require: package_main ?? "./csj/index.js",
             types: "./types/index.d.ts",
         },
         "./csj": {
-            import: "./esm/index.js",
-            require: "./csj/index.js",
+            import: package_module ?? "./esm/index.js",
+            require: package_main ?? "./csj/index.js",
             types: "./types/index.d.ts",
         },
     },
-    browser: allBrowserFiles,
+    browser: package_browser ?? allBrowserFiles,
     private: package_json.private ?? false,
     repository: package_json.repository ?? "",
     bin: package_json.bin ?? {

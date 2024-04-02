@@ -4,23 +4,23 @@
     "version": "1.0.0",
     "description": "",
     "comments": "",
-    "main": "./csj/index.js",
-    "module": "./esm/index.js",
+    "main": "./csj/index.ts",
+    "module": "./esm/index.ts",
     "types": "./types/index.d.ts",
     "exports": {
         ".": {
-            "import": "./esm/index.js",
-            "require": "./csj/index.js",
+            "import": "./esm/index.ts",
+            "require": "./csj/index.ts",
             "types": "./types/index.d.ts"
         },
         "./esm": {
-            "import": "./esm/index.js",
-            "require": "./csj/index.js",
+            "import": "./esm/index.ts",
+            "require": "./csj/index.ts",
             "types": "./types/index.d.ts"
         },
         "./csj": {
-            "import": "./esm/index.js",
-            "require": "./csj/index.js",
+            "import": "./esm/index.ts",
+            "require": "./csj/index.ts",
             "types": "./types/index.d.ts"
         }
     },
