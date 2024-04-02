@@ -1,15 +1,9 @@
 # node-build-engine
 
-[![NPM Version][npm-image]][npm-url]
-[![NPM Downloads][downloads-image]][downloads-url]
-[![Opencollective financial contributors][opencollective-contributors]][opencollective-url]
 
-[npm-image]: https://img.shields.io/npm/v/node-build-engine.svg
-[npm-url]: https://npmjs.org/package/node-build-engine
-[downloads-image]: https://img.shields.io/npm/dm/node-build-engine.svg
-[downloads-url]: https://npmjs.org/package/node-build-engine
-[opencollective-contributors]: https://opencollective.com/node-build-engine/tiers/badge.svg
-[opencollective-url]: https://opencollective.com/node-build-engine
+[![NPM](https://nodei.co/npm/node-build-engine.png)](https://nodei.co/npm/node-build-engine/)
+[![NPM Version](https://img.shields.io/npm/v/node-build-engine.svg)](https://npmjs.org/package/node-build-engine)
+[![NPM Downloads](https://img.shields.io/npm/dm/node-build-engine.svg)](https://npmjs.org/package/node-build-engine)
 
 Esta ferramenta foi desenvolvida com o objetivo de simplificar o processo de construção de projetos modulares, adaptando-se a diversos ambientes, tanto em servidores quanto em navegadores. Ela inclui compiladores que transformam um módulo para os formatos CommonJS, ESM, UMD, entre outros, permitindo uma ampla flexibilidade na distribuição e uso dos seus projetos.
 
