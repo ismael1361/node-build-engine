@@ -106,6 +106,23 @@ A configuração `browserify` no arquivo `tsconfig.json` permite personalizar a 
 
 10. **externalRequireName** (string): Define o nome da função `require` externa ao ser usada como script no navegador.
 
+Após o build ser executado e o projeto publicado no NPM, o pacote gerado estará pronto para ser utilizado em navegadores utilizando o link de redirecionamento da [`jsdelivr`](https://www.jsdelivr.com/). O `jsdelivr` é um serviço de CDN que permite a distribuição de pacotes de código-fonte de forma rápida e eficiente, facilitando a integração de bibliotecas e módulos em projetos web. Para utilizar o pacote gerado com o `node-build-engine` no `jsdelivr`, basta acessar o link de redirecionamento gerado e incluí-lo no HTML do seu projeto, como por exemplo:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/my-library@latest/dist/bumdle/index.min.js"></script>
+```
+
+Substitua `my-library` pelo nome do seu pacote e `latest` pela versão desejada (opcional). O arquivo `index.min.js` é o arquivo de entrada do pacote gerado pelo `node-build-engine` e pode ser incluído diretamente no HTML para uso em navegadores. Essa abordagem simplifica a integração de módulos e bibliotecas em projetos web, garantindo uma distribuição eficiente e otimizada para o ambiente do navegador.
+
+Para utilizar o projeto gerado no navegador, será necessário convocar o módulo por atraves do nome definido no `standalone` no `browserify`:
+
+```html
+<script>
+    const myLibrary = MyLibrary;
+    myLibrary.myFunction();
+</script>
+```
+
 #### Uso:
 
 Para configurar o `browserify` no `tsconfig.json`, inclua a seção `browserify` dentro da estrutura root e não dentro das opções do compilador (`compilerOptions`). Adapte os valores das opções conforme necessário para atender aos requisitos específicos do seu projeto, garantindo uma compilação eficiente e otimizada para a utilização em ambientes de navegador ou outras plataformas.
