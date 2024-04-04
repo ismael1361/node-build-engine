@@ -7,17 +7,33 @@ import * as glob from "glob";
 import browserify from "browserify";
 import terser from "terser";
 import webpack from "webpack";
+import * as babel from "babel-core";
 
-const tsconfig_path = path.join(process.cwd(), process.argv.slice(2)[0] ?? "tsconfig.json");
-const root_path = path.dirname(tsconfig_path);
-const dist_path = path.join(root_path, "dist");
-const package_path = path.join(process.cwd(), process.argv.slice(2)[0] ?? "package.json");
+const findFilePath = (fileName: string): string | undefined => {
+	let file_path = path.join(process.cwd(), fileName);
 
-if (!fs.existsSync(tsconfig_path)) {
+	while (!fs.existsSync(file_path)) {
+		const dirPath = path.resolve(path.dirname(file_path), "../");
+		if (/^[A-Z]:(\\|\/)?$/g.test(dirPath)) {
+			return undefined;
+		}
+		file_path = path.join(dirPath, "package.json");
+	}
+
+	return file_path;
+};
+
+const tsconfig_path = findFilePath(process.argv.slice(2)[0] ?? "tsconfig.json");
+
+if (!tsconfig_path || !fs.existsSync(tsconfig_path)) {
 	throw new Error("tsconfig.json not found or not exists");
 }
 
-if (!fs.existsSync(package_path)) {
+const root_path = path.dirname(tsconfig_path);
+const dist_path = path.join(root_path, "dist");
+const package_path = findFilePath("package.json");
+
+if (!package_path || !fs.existsSync(package_path)) {
 	throw new Error("package.json not found or not exists");
 }
 
@@ -27,11 +43,41 @@ if (fs.existsSync(dist_path)) {
 
 fs.mkdirSync(dist_path);
 
+const mkdir = (dir: string): boolean => {
+	try {
+		if (fs.existsSync(dir)) {
+			return fs.statSync(dir).isDirectory();
+		}
+		if (!fs.existsSync(path.dirname(dir))) {
+			mkdir(path.dirname(dir));
+		}
+		fs.mkdirSync(dir);
+	} catch {
+		return false;
+	}
+
+	return true;
+};
+
 console.log(tsconfig_path);
 const tsconfig: TSConfigContent = JSON.parse(fs.readFileSync(tsconfig_path, "utf-8"));
 
 console.log(package_path);
 const package_json = JSON.parse(fs.readFileSync(package_path, "utf-8"));
+
+const extFilesConverter = {
+	".js": ".js",
+	".jsx": ".js",
+	".ts": ".js",
+	".tsx": ".js",
+	".cts": ".cjs",
+	".mts": ".mjs",
+};
+
+const fileNameToLocalDist = (fileName: string): string => {
+	const ext = path.extname(fileName);
+	return fileName.replace(ext, extFilesConverter[ext] ?? ext);
+};
 
 const rootNames = tsconfig.files || [];
 const includes = tsconfig.include || [];
@@ -50,7 +96,16 @@ function matchFiles(patterns: string[], excludePatterns: string[] = []) {
 }
 
 // Obtém todos os arquivos incluídos com base no tsconfig.json
-const allFiles = rootNames.concat(matchFiles(includes, excludes)).map((file) => path.join(root_path, file));
+const allFiles = rootNames
+	.concat(matchFiles(includes, excludes))
+	.map((file) => path.join(root_path, file))
+	.filter((p) => {
+		const exts = [".ts", ".tsx", ".d.ts", ".cts", ".d.cts", ".mts", ".d.mts"];
+		if (fs.existsSync(p)) {
+			return fs.statSync(p).isFile() && exts.includes(path.extname(p));
+		}
+		return false;
+	});
 
 const allBrowserFiles: Record<string, string> = {};
 
@@ -63,46 +118,116 @@ let rootDir = tsconfig.compilerOptions?.rootDir ?? "";
 const generateProgram = (type: "esm" | "csj"): void => {
 	let { compilerOptions = {}, browser = {}, browserify: browserifyOptions } = { ...tsconfig };
 
-	const options = {
+	rootDir = path.join(root_path, compilerOptions.rootDir ?? "");
+
+	const options: ts.CompilerOptions & {
+		rootDir: string;
+		outDir: string;
+	} = {
+		...compilerOptions,
+		lib: (compilerOptions.lib ?? []).map((lib) => `lib.${lib.toLowerCase()}.d.ts`),
 		noEmitOnError: true,
 		noImplicitAny: true,
-		target: type === "esm" ? ts.ScriptTarget.ES2020 : ts.ScriptTarget.ES2017,
-		module: type === "esm" ? ts.ModuleKind.ES2020 : ts.ModuleKind.CommonJS,
-		moduleResolution: ts.ModuleResolutionKind.Node16,
+		//target: type === "esm" ? ts.ScriptTarget.ES2020 : ts.ScriptTarget.ES2017,
+		target: ts.ScriptTarget.ESNext,
+		module: type === "esm" ? ts.ModuleKind.ES2020 : ts.ModuleKind.Node16,
+		moduleResolution: type === "esm" ? ts.ModuleResolutionKind.Bundler : ts.ModuleResolutionKind.Node16,
 		listEmittedFiles: false,
 		sourceMap: true,
 		pretty: true,
 		declaration: type === "esm",
 		declarationMap: type === "esm",
-		skipLibCheck: false,
+		skipLibCheck: true,
 		strict: true,
 		esModuleInterop: true,
 		forceConsistentCasingInFileNames: true,
 		resolveJsonModule: true,
 		removeComments: false,
-		rootDir: path.join(root_path, compilerOptions.rootDir ?? ""),
+		rootDir,
 		outDir: path.join(dist_path, type),
 		declarationDir: type === "esm" ? path.join(dist_path, "types") : undefined,
+		typeRoots: [...(compilerOptions.typeRoots ?? []), "node_modules/@types", "path/to/your/typings"],
+		paths: {
+			"*": [`${rootDir.replace(/\\/gi, "/").replace(/\/$/gi, "")}/*`],
+			...Object.fromEntries(Object.entries(compilerOptions.paths ?? {}).map(([key, value]) => [key, value.map((v) => path.join(rootDir, v).replace(/\\/gi, "/").replace(/\/$/gi, ""))])),
+		},
 	};
 
-	rootDir = options.rootDir;
+	//const host = ts.createCompilerHost(options);
+	const host: ts.CompilerHost = {
+		getSourceFile: (fileName, languageVersion) => {
+			if (!fs.existsSync(fileName)) {
+				return undefined;
+			}
+			const sourceText = fs.readFileSync(fileName, "utf8");
+			return ts.createSourceFile(fileName, sourceText, languageVersion);
+		},
+		getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+		writeFile: (fileName, data, writeByteOrderMark, onError, sourceFiles) => {
+			fs.outputFileSync(fileName, data, { encoding: "utf-8" });
+		},
+		getCurrentDirectory: () => package_path,
+		getDirectories: (path) => fs.readdirSync(path).filter((f) => fs.statSync(path).isDirectory()),
+		fileExists: fs.existsSync,
+		readFile: (fileName) => fs.readFileSync(fileName, "utf-8").toString(),
+		readDirectory: (fileName) => fs.readdirSync(fileName),
+		useCaseSensitiveFileNames: () => process.platform !== "win32",
+		getCanonicalFileName: (fileName) => (process.platform === "win32" ? fileName.toLowerCase() : fileName),
+		getNewLine: () => "\n",
+		realpath: fs.realpathSync,
+		trace: (s) => {
+			//console.log(s);
+		},
+		directoryExists: (d) => fs.existsSync(d) && fs.statSync(d).isDirectory(),
+		getEnvironmentVariable: () => "",
+		hasInvalidatedResolutions(filePath) {
+			return false;
+		},
+		// getDefaultLibFileName(options: ts.CompilerOptions): string {
+		// 	// Resolve o caminho para o arquivo lib.d.ts
+		// 	return path.join(path.dirname(require.resolve("typescript")), "lib", "lib.d.ts");
+		// },
+	};
 
-	const host = ts.createCompilerHost(options);
-	const program = ts.createProgram(allFiles, options, host);
-	const result = program.emit();
+	if (type === "esm") {
+		const program = ts.createProgram(allFiles, options, host);
+		const result = program.emit();
 
-	if (result.emitSkipped) {
-		const errors = ts.getPreEmitDiagnostics(program).concat(result.diagnostics);
-		errors.forEach((diagnostic) => {
-			if (diagnostic.file) {
-				const { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start || 0);
-				const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-				console.error(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
-			} else {
-				console.error(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+		if (result.emitSkipped) {
+			const errors = ts.getPreEmitDiagnostics(program).concat(result.diagnostics);
+			errors.forEach((diagnostic) => {
+				if (diagnostic.file) {
+					const { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start || 0);
+					const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+					console.error(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
+				} else {
+					console.error(ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+				}
+			});
+			process.exit(1);
+		}
+	} else {
+		const esm_files = glob.sync("esm/**/*.js", {
+			cwd: dist_path,
+			ignore: ["esm/**/*.d.ts"],
+		});
+
+		esm_files.forEach((file) => {
+			const code = fs.readFileSync(path.join(dist_path, file), "utf-8");
+
+			const { code: transformedCode, map: transformedMap } = babel.transform(code, {
+				presets: ["es2015", "react", "stage-2"],
+				plugins: [["transform-object-rest-spread", { useBuiltIns: true }], ["add-module-exports"]],
+				sourceMaps: true,
+			});
+
+			file = file.replace(/^esm\\/gi, "");
+			const isDir = mkdir(path.dirname(path.join(dist_path, type, file)));
+			if (isDir) {
+				fs.writeFileSync(path.join(dist_path, type, file), transformedCode ?? "", "utf-8");
+				fs.writeFileSync(path.join(dist_path, type, `${file}.map`), JSON.stringify(transformedMap), "utf-8");
 			}
 		});
-		process.exit(1);
 	}
 
 	const browserFiles: Record<string, string> = {};
@@ -286,6 +411,19 @@ const generateProgram = (type: "esm" | "csj"): void => {
 
 generateProgram("esm");
 generateProgram("csj");
+
+/*"babel-cli": "^6.6.5",
+    "babel-core": "^6.26.3",
+    "babel-eslint": "^7.2.3",
+    "babel-istanbul": "^0.12.2",
+    "babel-plugin-add-module-exports": "^0.1.2",
+    "babel-plugin-istanbul": "^4.1.6",
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
+    "babel-preset-es2015": "^6.6.0",
+    "babel-preset-react": "^6.5.0",
+    "babel-preset-stage-2": "^6.13.0",*/
+
+// npm install --save-dev babel-cli babel-core babel-eslint babel-istanbul babel-plugin-add-module-exports babel-plugin-istanbul babel-plugin-transform-object-rest-spread babel-preset-es2015 babel-preset-react babel-preset-stage-2
 
 const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;

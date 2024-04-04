@@ -15,13 +15,15 @@ var __webpack_exports__ = {};
 (() => {
 var exports = __webpack_exports__;
 
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.apenasUmaFuncao = void 0;
+
+Object.defineProperty(exports, "__esModule", ({
+    value: true
+}));
 function apenasUmaFuncao() {
     console.log("apenasUmaFuncao::browser");
 }
 exports.apenasUmaFuncao = apenasUmaFuncao;
-
+//# sourceMappingURL=browser.js.map
 })();
 
 /******/ 	return __webpack_exports__;

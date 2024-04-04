@@ -66,11 +66,22 @@
 	},
 	"homepage": "https://github.com/ismael1361/node-build-engine#readme",
 	"devDependencies": {
+		"@types/babel-core": "^6.25.10",
 		"@types/browserify": "^12.0.40",
 		"@types/fs-extra": "11.0.4",
 		"@types/node": "20.4.8",
-		"@typescript-eslint/eslint-plugin": "6.2.1",
-		"@typescript-eslint/parser": "6.2.1",
+		"@types/react": "^18.2.74",
+		"@types/react-dom": "^18.2.23",
+		"babel-cli": "^6.26.0",
+		"babel-core": "^6.26.3",
+		"babel-eslint": "^10.1.0",
+		"babel-istanbul": "^0.12.2",
+		"babel-plugin-add-module-exports": "^1.0.4",
+		"babel-plugin-istanbul": "^6.1.1",
+		"babel-plugin-transform-object-rest-spread": "^6.26.0",
+		"babel-preset-es2015": "^6.24.1",
+		"babel-preset-react": "^6.24.1",
+		"babel-preset-stage-2": "^6.24.1",
 		"browserify": "17.0.0",
 		"eslint": "8.46.0",
 		"esm": "3.2.25",
@@ -79,14 +90,18 @@
 		"terser": "5.15.1",
 		"ts-node": "10.9.1",
 		"tsc-esm-fix": "2.20.14",
-		"typescript": "5.1.6",
 		"webpack": "^5.91.0"
 	},
 	"dependencies": {
+		"@typescript-eslint/eslint-plugin": "6.2.1",
+		"@typescript-eslint/parser": "6.2.1",
 		"cuid": "3.0.0",
 		"fs-extra": "11.2.0",
 		"glob": "^10.3.12",
 		"link": "^2.1.0",
-		"rxjs": "7.8.1"
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0",
+		"rxjs": "7.8.1",
+		"typescript": "^5.4.3"
 	}
 }

@@ -33,20 +33,47 @@ const typescript_1 = __importDefault(require("typescript"));
 const glob = __importStar(require("glob"));
 const terser_1 = __importDefault(require("terser"));
 const webpack_1 = __importDefault(require("webpack"));
-const tsconfig_path = path_1.default.join(process.cwd(), process.argv.slice(2)[0] ?? "tsconfig.json");
-const root_path = path_1.default.dirname(tsconfig_path);
-const dist_path = path_1.default.join(root_path, "dist");
-const package_path = path_1.default.join(process.cwd(), process.argv.slice(2)[0] ?? "package.json");
-if (!fs_extra_1.default.existsSync(tsconfig_path)) {
+const babel = __importStar(require("babel-core"));
+const findFilePath = (fileName) => {
+    let file_path = path_1.default.join(process.cwd(), fileName);
+    while (!fs_extra_1.default.existsSync(file_path)) {
+        const dirPath = path_1.default.resolve(path_1.default.dirname(file_path), "../");
+        if (/^[A-Z]:(\\|\/)?$/g.test(dirPath)) {
+            return undefined;
+        }
+        file_path = path_1.default.join(dirPath, "package.json");
+    }
+    return file_path;
+};
+const tsconfig_path = findFilePath(process.argv.slice(2)[0] ?? "tsconfig.json");
+if (!tsconfig_path || !fs_extra_1.default.existsSync(tsconfig_path)) {
     throw new Error("tsconfig.json not found or not exists");
 }
-if (!fs_extra_1.default.existsSync(package_path)) {
+const root_path = path_1.default.dirname(tsconfig_path);
+const dist_path = path_1.default.join(root_path, "dist");
+const package_path = findFilePath("package.json");
+if (!package_path || !fs_extra_1.default.existsSync(package_path)) {
     throw new Error("package.json not found or not exists");
 }
 if (fs_extra_1.default.existsSync(dist_path)) {
     fs_extra_1.default.removeSync(dist_path);
 }
 fs_extra_1.default.mkdirSync(dist_path);
+const mkdir = (dir) => {
+    try {
+        if (fs_extra_1.default.existsSync(dir)) {
+            return fs_extra_1.default.statSync(dir).isDirectory();
+        }
+        if (!fs_extra_1.default.existsSync(path_1.default.dirname(dir))) {
+            mkdir(path_1.default.dirname(dir));
+        }
+        fs_extra_1.default.mkdirSync(dir);
+    }
+    catch {
+        return false;
+    }
+    return true;
+};
 console.log(tsconfig_path);
 const tsconfig = JSON.parse(fs_extra_1.default.readFileSync(tsconfig_path, "utf-8"));
 console.log(package_path);
@@ -66,7 +93,16 @@ function matchFiles(patterns, excludePatterns = []) {
     return files;
 }
 // Obtém todos os arquivos incluídos com base no tsconfig.json
-const allFiles = rootNames.concat(matchFiles(includes, excludes)).map((file) => path_1.default.join(root_path, file));
+const allFiles = rootNames
+    .concat(matchFiles(includes, excludes))
+    .map((file) => path_1.default.join(root_path, file))
+    .filter((p) => {
+    const exts = [".ts", ".tsx", ".d.ts", ".cts", ".d.cts", ".mts", ".d.mts"];
+    if (fs_extra_1.default.existsSync(p)) {
+        return fs_extra_1.default.statSync(p).isFile() && exts.includes(path_1.default.extname(p));
+    }
+    return false;
+});
 const allBrowserFiles = {};
 const main_dir = package_json.main ? path_1.default.resolve(path_1.default.dirname(package_path), package_json.main) : undefined;
 const browser_dir = package_json.browser ? path_1.default.resolve(path_1.default.dirname(package_path), package_json.browser) : undefined;
@@ -74,44 +110,108 @@ const module_dir = package_json.module ? path_1.default.resolve(path_1.default.d
 let rootDir = tsconfig.compilerOptions?.rootDir ?? "";
 const generateProgram = (type) => {
     let { compilerOptions = {}, browser = {}, browserify: browserifyOptions } = { ...tsconfig };
+    rootDir = path_1.default.join(root_path, compilerOptions.rootDir ?? "");
     const options = {
+        ...compilerOptions,
+        lib: (compilerOptions.lib ?? []).map((lib) => `lib.${lib.toLowerCase()}.d.ts`),
         noEmitOnError: true,
         noImplicitAny: true,
-        target: type === "esm" ? typescript_1.default.ScriptTarget.ES2020 : typescript_1.default.ScriptTarget.ES2017,
-        module: type === "esm" ? typescript_1.default.ModuleKind.ES2020 : typescript_1.default.ModuleKind.CommonJS,
-        moduleResolution: typescript_1.default.ModuleResolutionKind.Node16,
+        //target: type === "esm" ? ts.ScriptTarget.ES2020 : ts.ScriptTarget.ES2017,
+        target: typescript_1.default.ScriptTarget.ESNext,
+        module: type === "esm" ? typescript_1.default.ModuleKind.ES2020 : typescript_1.default.ModuleKind.Node16,
+        moduleResolution: type === "esm" ? typescript_1.default.ModuleResolutionKind.Bundler : typescript_1.default.ModuleResolutionKind.Node16,
         listEmittedFiles: false,
         sourceMap: true,
         pretty: true,
         declaration: type === "esm",
         declarationMap: type === "esm",
-        skipLibCheck: false,
+        skipLibCheck: true,
         strict: true,
         esModuleInterop: true,
         forceConsistentCasingInFileNames: true,
         resolveJsonModule: true,
         removeComments: false,
-        rootDir: path_1.default.join(root_path, compilerOptions.rootDir ?? ""),
+        rootDir,
         outDir: path_1.default.join(dist_path, type),
         declarationDir: type === "esm" ? path_1.default.join(dist_path, "types") : undefined,
+        typeRoots: [...(compilerOptions.typeRoots ?? []), "node_modules/@types", "path/to/your/typings"],
+        paths: {
+            "*": [`${rootDir.replace(/\\/gi, "/").replace(/\/$/gi, "")}/*`],
+            ...Object.fromEntries(Object.entries(compilerOptions.paths ?? {}).map(([key, value]) => [key, value.map((v) => path_1.default.join(rootDir, v).replace(/\\/gi, "/").replace(/\/$/gi, ""))])),
+        },
     };
-    rootDir = options.rootDir;
-    const host = typescript_1.default.createCompilerHost(options);
-    const program = typescript_1.default.createProgram(allFiles, options, host);
-    const result = program.emit();
-    if (result.emitSkipped) {
-        const errors = typescript_1.default.getPreEmitDiagnostics(program).concat(result.diagnostics);
-        errors.forEach((diagnostic) => {
-            if (diagnostic.file) {
-                const { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start || 0);
-                const message = typescript_1.default.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-                console.error(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
+    //const host = ts.createCompilerHost(options);
+    const host = {
+        getSourceFile: (fileName, languageVersion) => {
+            if (!fs_extra_1.default.existsSync(fileName)) {
+                return undefined;
             }
-            else {
-                console.error(typescript_1.default.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+            const sourceText = fs_extra_1.default.readFileSync(fileName, "utf8");
+            return typescript_1.default.createSourceFile(fileName, sourceText, languageVersion);
+        },
+        getDefaultLibFileName: (options) => typescript_1.default.getDefaultLibFilePath(options),
+        writeFile: (fileName, data, writeByteOrderMark, onError, sourceFiles) => {
+            fs_extra_1.default.outputFileSync(fileName, data, { encoding: "utf-8" });
+        },
+        getCurrentDirectory: () => package_path,
+        getDirectories: (path) => fs_extra_1.default.readdirSync(path).filter((f) => fs_extra_1.default.statSync(path).isDirectory()),
+        fileExists: fs_extra_1.default.existsSync,
+        readFile: (fileName) => fs_extra_1.default.readFileSync(fileName, "utf-8").toString(),
+        readDirectory: (fileName) => fs_extra_1.default.readdirSync(fileName),
+        useCaseSensitiveFileNames: () => process.platform !== "win32",
+        getCanonicalFileName: (fileName) => (process.platform === "win32" ? fileName.toLowerCase() : fileName),
+        getNewLine: () => "\n",
+        realpath: fs_extra_1.default.realpathSync,
+        trace: (s) => {
+            //console.log(s);
+        },
+        directoryExists: (d) => fs_extra_1.default.existsSync(d) && fs_extra_1.default.statSync(d).isDirectory(),
+        getEnvironmentVariable: () => "",
+        hasInvalidatedResolutions(filePath) {
+            return false;
+        },
+        // getDefaultLibFileName(options: ts.CompilerOptions): string {
+        // 	// Resolve o caminho para o arquivo lib.d.ts
+        // 	return path.join(path.dirname(require.resolve("typescript")), "lib", "lib.d.ts");
+        // },
+    };
+    if (type === "esm") {
+        const program = typescript_1.default.createProgram(allFiles, options, host);
+        const result = program.emit();
+        if (result.emitSkipped) {
+            const errors = typescript_1.default.getPreEmitDiagnostics(program).concat(result.diagnostics);
+            errors.forEach((diagnostic) => {
+                if (diagnostic.file) {
+                    const { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start || 0);
+                    const message = typescript_1.default.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+                    console.error(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
+                }
+                else {
+                    console.error(typescript_1.default.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+                }
+            });
+            process.exit(1);
+        }
+    }
+    else {
+        const esm_files = glob.sync("esm/**/*.js", {
+            cwd: dist_path,
+            ignore: ["esm/**/*.d.ts"],
+        });
+        esm_files.forEach((file) => {
+            const code = fs_extra_1.default.readFileSync(path_1.default.join(dist_path, file), "utf-8");
+            const { code: transformedCode, map: transformedMap } = babel.transform(code, {
+                presets: ["es2015", "react", "stage-2"],
+                plugins: [["transform-object-rest-spread", { useBuiltIns: true }], ["add-module-exports"]],
+                sourceMaps: true,
+            });
+            file = file.replace(/^esm\\/gi, "");
+            const isDir = mkdir(path_1.default.dirname(path_1.default.join(dist_path, type, file)));
+            if (isDir) {
+                fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, type, file), transformedCode ?? "", "utf-8");
+                fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, type, `${file}.map`), JSON.stringify(transformedMap), "utf-8");
             }
         });
-        process.exit(1);
     }
     const browserFiles = {};
     for (const [key, value] of Object.entries(browser)) {
@@ -187,8 +287,8 @@ const generateProgram = (type) => {
                 output: {
                     path: path_1.default.join(dist_path, "bundle"),
                     filename: "index.js",
-                    library: browserifyOptions.standalone ?? package_json.name ?? "module",
-                    libraryTarget: "umd",
+                    library: browserifyOptions.standalone ?? package_json.name ?? "module", // Especifique o nome da biblioteca UMD
+                    libraryTarget: "umd", // Gere no formato UMD
                     globalObject: "this", // Corrija o erro de 'window is not defined'
                 },
                 optimization: {
@@ -257,6 +357,17 @@ const generateProgram = (type) => {
 };
 generateProgram("esm");
 generateProgram("csj");
+/*"babel-cli": "^6.6.5",
+    "babel-core": "^6.26.3",
+    "babel-eslint": "^7.2.3",
+    "babel-istanbul": "^0.12.2",
+    "babel-plugin-add-module-exports": "^0.1.2",
+    "babel-plugin-istanbul": "^4.1.6",
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
+    "babel-preset-es2015": "^6.6.0",
+    "babel-preset-react": "^6.5.0",
+    "babel-preset-stage-2": "^6.13.0",*/
+// npm install --save-dev babel-cli babel-core babel-eslint babel-istanbul babel-plugin-add-module-exports babel-plugin-istanbul babel-plugin-transform-object-rest-spread babel-preset-es2015 babel-preset-react babel-preset-stage-2
 const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;

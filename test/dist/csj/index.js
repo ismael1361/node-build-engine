@@ -1,6 +1,8 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.apenasUmaFuncao = void 0;
+
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
 function apenasUmaFuncao() {
     console.log("apenasUmaFuncao");
 }

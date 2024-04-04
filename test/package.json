@@ -3,9 +3,17 @@
 	"version": "1.0.0",
 	"private": false,
 	"main": "./src/index.ts",
+	"babel-main": "./src/component.tsx",
 	"scripts": {
 		"start": "node ../dist/cjs/index.js",
 		"build": "npx node-build-engine",
 		"test": "node-build-engine"
+	},
+	"dependencies": {
+		"react": "^18.2.0",
+		"react-dom": "^18.2.0"
+	},
+	"devDependencies": {
+		"@types/react": "^18.2.74"
 	}
 }

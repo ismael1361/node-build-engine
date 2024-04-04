@@ -5,9 +5,11 @@
     },
     "compilerOptions": {
         "lib": [
-            "esnext",
-            "dom"
+            "DOM",
+            "DOM.Iterable",
+            "ESNext"
         ],
+        "jsx": "react",
         "listEmittedFiles": false,
         "target": "es2020",
         "module": "CommonJS",
@@ -30,7 +32,7 @@
     },
     "compileOnSave": false,
     "include": [
-        "src/**/*.ts"
+        "src/**/*"
     ],
     "exclude": [
         "node_modules",
