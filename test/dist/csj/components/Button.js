@@ -1,23 +1,13 @@
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+  value: true
 });
-
-var _react = require("react");
-
-var _react2 = _interopRequireDefault(_react);
-
+exports.default = void 0;
+var _react = _interopRequireDefault(require("react"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-
 var Button = function Button(props) {
-    return _react2.default.createElement(
-        "button",
-        props,
-        "Click me"
-    );
+  return /*#__PURE__*/_react.default.createElement("button", props, "Click me");
 };
-exports.default = Button;
-//# sourceMappingURL=Button.js.map
-
+var _default = exports.default = Button;
 module.exports = exports.default;

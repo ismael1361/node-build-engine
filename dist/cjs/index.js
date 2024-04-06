@@ -34,7 +34,7 @@ const typescript_1 = __importDefault(require("typescript"));
 const glob = __importStar(require("glob"));
 const terser_1 = __importDefault(require("terser"));
 const webpack_1 = __importDefault(require("webpack"));
-const babel = __importStar(require("babel-core"));
+const babel = __importStar(require("@babel/core"));
 const findFilePath = (fileName) => {
     let file_path = path_1.default.join(process.cwd(), fileName);
     while (!fs_extra_1.default.existsSync(file_path)) {
@@ -79,6 +79,19 @@ console.log(tsconfig_path);
 const tsconfig = JSON.parse(fs_extra_1.default.readFileSync(tsconfig_path, "utf-8"));
 console.log(package_path);
 const package_json = JSON.parse(fs_extra_1.default.readFileSync(package_path, "utf-8"));
+const extFilesConverter = {
+    ".js": ".js",
+    ".jsx": ".js",
+    ".ts": ".js",
+    ".tsx": ".js",
+    ".cts": ".cjs",
+    ".mts": ".mjs",
+};
+const fileNameToLocalDist = (fileName) => {
+    var _a;
+    const ext = path_1.default.extname(fileName);
+    return fileName.replace(ext, (_a = extFilesConverter[ext]) !== null && _a !== void 0 ? _a : ext);
+};
 const rootNames = tsconfig.files || [];
 const includes = tsconfig.include || [];
 const excludes = tsconfig.exclude || [];
@@ -175,12 +188,32 @@ const generateProgram = (type) => {
             ignore: ["esm/**/*.d.ts"],
         });
         esm_files.forEach((file) => {
+            var _a;
             const code = fs_extra_1.default.readFileSync(path_1.default.join(dist_path, file), "utf-8");
-            const { code: transformedCode, map: transformedMap } = babel.transform(code, {
-                presets: ["es2015", "react", "stage-2"],
-                plugins: [["transform-object-rest-spread", { useBuiltIns: true }], ["add-module-exports"]],
+            const { code: transformedCode, map: transformedMap } = (_a = babel.transform(code, {
+                presets: [
+                    [
+                        "@babel/preset-env",
+                        {
+                            targets: {
+                                browsers: ["last 2 versions", "ie >= 11"],
+                            },
+                            useBuiltIns: false,
+                        },
+                    ],
+                    "@babel/preset-react",
+                ],
+                plugins: [
+                    ["@babel/plugin-proposal-decorators", { legacy: true }],
+                    ["@babel/plugin-proposal-class-properties", { loose: false }],
+                    ["@babel/plugin-transform-object-rest-spread", { useBuiltIns: true }],
+                    "add-module-exports",
+                    "@babel/plugin-proposal-nullish-coalescing-operator",
+                    "@babel/plugin-proposal-optional-chaining",
+                    "@babel/plugin-proposal-logical-assignment-operators",
+                ],
                 sourceMaps: true,
-            });
+            })) !== null && _a !== void 0 ? _a : {};
             file = file.replace(/^esm\\/gi, "");
             const isDir = mkdir(path_1.default.dirname(path_1.default.join(dist_path, type, file)));
             if (isDir) {
@@ -191,37 +224,16 @@ const generateProgram = (type) => {
     }
     const browserFiles = {};
     for (const [key, value] of Object.entries(browser)) {
-        const nodeFile = path_1.default
-            .resolve(options.rootDir, key)
-            .replace(options.rootDir, options.outDir)
-            .replace(/\.tsx?$/, ".js");
-        const browserFile = path_1.default
-            .resolve(options.rootDir, value)
-            .replace(options.rootDir, options.outDir)
-            .replace(/\.tsx?$/, ".js");
+        const nodeFile = fileNameToLocalDist(path_1.default.resolve(options.rootDir, key)).replace(options.rootDir, options.outDir);
+        const browserFile = fileNameToLocalDist(path_1.default.resolve(options.rootDir, value)).replace(options.rootDir, options.outDir);
         if (fs_extra_1.default.existsSync(nodeFile) && fs_extra_1.default.existsSync(browserFile)) {
             browserFiles[nodeFile.replace(options.outDir, ".\\").replaceAll(/\\+/gi, "/")] = browserFile.replace(options.outDir, ".\\").replace(/\\+/gi, "/");
             allBrowserFiles[nodeFile.replace(options.outDir, `.\\${type}\\`).replaceAll(/\\+/gi, "/")] = browserFile.replace(options.outDir, `.\\${type}\\`).replace(/\\+/gi, "/");
         }
     }
-    const main_path = main_dir
-        ? main_dir
-            .replace(options.rootDir, ".\\")
-            .replace(/\\+/gi, "/")
-            .replace(/\.tsx?$/, ".js")
-        : undefined;
-    const browser_path = browser_dir
-        ? browser_dir
-            .replace(options.rootDir, ".\\")
-            .replace(/\\+/gi, "/")
-            .replace(/\.tsx?$/, ".js")
-        : undefined;
-    const module_path = module_dir
-        ? module_dir
-            .replace(options.rootDir, ".\\")
-            .replace(/\\+/gi, "/")
-            .replace(/\.tsx?$/, ".js")
-        : undefined;
+    const main_path = main_dir ? fileNameToLocalDist(main_dir.replace(options.rootDir, ".\\")).replace(/\\+/gi, "/") : undefined;
+    const browser_path = browser_dir ? fileNameToLocalDist(browser_dir.replace(options.rootDir, ".\\")).replace(/\\+/gi, "/") : undefined;
+    const module_path = module_dir ? fileNameToLocalDist(module_dir.replace(options.rootDir, ".\\")).replace(/\\+/gi, "/") : undefined;
     if (main_path && browser_path) {
         const m = path_1.default.resolve(options.outDir, main_path).replace(path_1.default.dirname(options.outDir), ".\\").replace(/\\+/gi, "/");
         const b = path_1.default.resolve(options.outDir, browser_path).replace(path_1.default.dirname(options.outDir), ".\\").replace(/\\+/gi, "/");
@@ -253,7 +265,7 @@ const generateProgram = (type) => {
     else if (typeof browserifyOptions === "object") {
         browserifyOptions.entries = (Array.isArray(browserifyOptions.entries) ? browserifyOptions.entries : [browserifyOptions.entries])
             .filter((p) => typeof p === "string" && p.trim() !== "")
-            .map((p) => path_1.default.resolve(options.outDir, p).replace(/\.tsx?$/, ".js"))
+            .map((p) => fileNameToLocalDist(path_1.default.resolve(options.outDir, p)))
             .filter((p) => fs_extra_1.default.existsSync(p));
         if (Array.isArray(browserifyOptions.entries) && browserifyOptions.entries.length > 0) {
             (0, webpack_1.default)({

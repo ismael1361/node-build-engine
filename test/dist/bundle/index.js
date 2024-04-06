@@ -17,13 +17,12 @@ var exports = __webpack_exports__;
 
 
 Object.defineProperty(exports, "__esModule", ({
-    value: true
+  value: true
 }));
-function apenasUmaFuncao() {
-    console.log("apenasUmaFuncao::browser");
-}
 exports.apenasUmaFuncao = apenasUmaFuncao;
-//# sourceMappingURL=browser.js.map
+function apenasUmaFuncao() {
+  console.log("apenasUmaFuncao::browser");
+}
 })();
 
 /******/ 	return __webpack_exports__;
