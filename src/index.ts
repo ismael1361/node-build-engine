@@ -9,6 +9,20 @@ import terser from "terser";
 import webpack from "webpack";
 import * as babel from "@babel/core";
 
+const createDirectories = (dirPath: string) => {
+	// Usa path.resolve para garantir um caminho absoluto.
+	const absolutePath = path.resolve(dirPath);
+	//return fs.mkdirSync(absolutePath, { recursive: true });
+
+	if (!fs.existsSync(path.dirname(absolutePath))) {
+		createDirectories(path.dirname(absolutePath));
+	}
+
+	if (!fs.existsSync(absolutePath)) {
+		return fs.mkdirSync(absolutePath, { recursive: true });
+	}
+};
+
 const findFilePath = (fileName: string): string | undefined => {
 	let file_path = path.join(process.cwd(), fileName);
 
@@ -107,6 +121,10 @@ const allFiles = rootNames
 		return false;
 	});
 
+allFiles.forEach((file) => {
+	console.log(file);
+});
+
 const allBrowserFiles: Record<string, string> = {};
 
 const main_dir = package_json.main ? path.resolve(path.dirname(package_path), package_json.main) : undefined;
@@ -143,6 +161,7 @@ const generateProgram = (type: "esm" | "csj"): void => {
 		forceConsistentCasingInFileNames: true,
 		resolveJsonModule: true,
 		removeComments: false,
+		noEmit: false,
 		rootDir,
 		outDir: path.join(dist_path, type),
 		declarationDir: type === "esm" ? path.join(dist_path, "types") : undefined,
@@ -244,6 +263,7 @@ const generateProgram = (type: "esm" | "csj"): void => {
 			file = file.replace(/^esm\\/gi, "");
 			const isDir = mkdir(path.dirname(path.join(dist_path, type, file)));
 			if (isDir) {
+				createDirectories(path.join(dist_path, type));
 				fs.writeFileSync(path.join(dist_path, type, file), transformedCode ?? "", "utf-8");
 				fs.writeFileSync(path.join(dist_path, type, `${file}.map`), JSON.stringify(transformedMap), "utf-8");
 			}
@@ -278,6 +298,7 @@ const generateProgram = (type: "esm" | "csj"): void => {
 		}
 	}
 
+	createDirectories(options.outDir);
 	fs.writeFileSync(
 		path.join(options.outDir, "package.json"),
 		`{
@@ -310,6 +331,7 @@ const generateProgram = (type: "esm" | "csj"): void => {
 	fs.writeFileSync(path.join(options.outDir, "index.d.ts"), `export * from '../types/index.js';`, "utf-8");
 
 	if (type === "esm") {
+		createDirectories(path.resolve(options.outDir, "../types"));
 		fs.writeFileSync(
 			path.resolve(options.outDir, "../types/optional-observable.d.ts"),
 			`// eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -429,6 +451,7 @@ const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\
 const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;
 
+createDirectories(dist_path);
 fs.writeFileSync(
 	path.resolve(dist_path, "package.json"),
 	JSON.stringify(

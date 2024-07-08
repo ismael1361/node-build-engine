@@ -34,6 +34,17 @@ const glob = __importStar(require("glob"));
 const terser_1 = __importDefault(require("terser"));
 const webpack_1 = __importDefault(require("webpack"));
 const babel = __importStar(require("@babel/core"));
+const createDirectories = (dirPath) => {
+    // Usa path.resolve para garantir um caminho absoluto.
+    const absolutePath = path_1.default.resolve(dirPath);
+    //return fs.mkdirSync(absolutePath, { recursive: true });
+    if (!fs_extra_1.default.existsSync(path_1.default.dirname(absolutePath))) {
+        createDirectories(path_1.default.dirname(absolutePath));
+    }
+    if (!fs_extra_1.default.existsSync(absolutePath)) {
+        return fs_extra_1.default.mkdirSync(absolutePath, { recursive: true });
+    }
+};
 const findFilePath = (fileName) => {
     let file_path = path_1.default.join(process.cwd(), fileName);
     while (!fs_extra_1.default.existsSync(file_path)) {
@@ -114,6 +125,9 @@ const allFiles = rootNames
         return fs_extra_1.default.statSync(p).isFile() && exts.includes(path_1.default.extname(p));
     }
     return false;
+});
+allFiles.forEach((file) => {
+    console.log(file);
 });
 const allBrowserFiles = {};
 const main_dir = package_json.main ? path_1.default.resolve(path_1.default.dirname(package_path), package_json.main) : undefined;
@@ -239,6 +253,7 @@ const generateProgram = (type) => {
             file = file.replace(/^esm\\/gi, "");
             const isDir = mkdir(path_1.default.dirname(path_1.default.join(dist_path, type, file)));
             if (isDir) {
+                createDirectories(path_1.default.join(dist_path, type));
                 fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, type, file), transformedCode ?? "", "utf-8");
                 fs_extra_1.default.writeFileSync(path_1.default.join(dist_path, type, `${file}.map`), JSON.stringify(transformedMap), "utf-8");
             }
@@ -263,6 +278,7 @@ const generateProgram = (type) => {
             allBrowserFiles[m] = b;
         }
     }
+    createDirectories(options.outDir);
     fs_extra_1.default.writeFileSync(path_1.default.join(options.outDir, "package.json"), `{
     "type": "${type === "esm" ? "module" : "commonjs"}",
     ${main_path
@@ -281,6 +297,7 @@ const generateProgram = (type) => {
 }`, "utf-8");
     fs_extra_1.default.writeFileSync(path_1.default.join(options.outDir, "index.d.ts"), `export * from '../types/index.js';`, "utf-8");
     if (type === "esm") {
+        createDirectories(path_1.default.resolve(options.outDir, "../types"));
         fs_extra_1.default.writeFileSync(path_1.default.resolve(options.outDir, "../types/optional-observable.d.ts"), `// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: rxjs dependency is optional and only needed when using methods that require them`, "utf-8");
     }
@@ -381,6 +398,7 @@ generateProgram("csj");
 const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;
+createDirectories(dist_path);
 fs_extra_1.default.writeFileSync(path_1.default.resolve(dist_path, "package.json"), JSON.stringify({
     name: package_json.name ?? "",
     type: package_json.type ?? "module",
