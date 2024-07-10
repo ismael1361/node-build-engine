@@ -451,6 +451,13 @@ const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\
 const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;
 
+const resolveExtTs = (fileName: string): string => {
+	return fileName
+		.replace(/\.ts$/gi, ".js")
+		.replace(/\.cts$/gi, ".cjs")
+		.replace(/\.mts$/gi, ".mjs");
+};
+
 createDirectories(dist_path);
 fs.writeFileSync(
 	path.resolve(dist_path, "package.json"),
@@ -461,23 +468,23 @@ fs.writeFileSync(
 			version: package_json.version ?? "1.0.0",
 			description: package_json.description ?? "",
 			comments: package_json.comments ?? "",
-			main: package_main ?? "./csj/index.js",
-			module: package_module ?? "./esm/index.js",
+			main: resolveExtTs(package_main ?? "./csj/index.js"),
+			module: resolveExtTs(package_module ?? "./esm/index.js"),
 			types: "./types/index.d.ts",
 			exports: {
 				".": {
-					import: package_module ?? "./esm/index.js",
-					require: package_main ?? "./csj/index.js",
+					import: resolveExtTs(package_module ?? "./esm/index.js"),
+					require: resolveExtTs(package_main ?? "./csj/index.js"),
 					types: "./types/index.d.ts",
 				},
 				"./esm": {
-					import: package_module ?? "./esm/index.js",
-					require: package_main ?? "./csj/index.js",
+					import: resolveExtTs(package_module ?? "./esm/index.js"),
+					require: resolveExtTs(package_main ?? "./csj/index.js"),
 					types: "./types/index.d.ts",
 				},
 				"./csj": {
-					import: package_module ?? "./esm/index.js",
-					require: package_main ?? "./csj/index.js",
+					import: resolveExtTs(package_module ?? "./esm/index.js"),
+					require: resolveExtTs(package_main ?? "./csj/index.js"),
 					types: "./types/index.d.ts",
 				},
 			},

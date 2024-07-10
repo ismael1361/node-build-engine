@@ -1,6 +1,6 @@
 {
 	"name": "node-build-engine",
-	"version": "1.3.2",
+	"version": "1.3.3",
 	"type": "module",
 	"description": "Um mecanismo de construção do node para construir aplicativos de node e bibliotecas de node com webpack e/ou browserify para diferentes ambientes como CommonJS, ESM, UMD, etc...",
 	"comments": {

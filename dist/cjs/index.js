@@ -142,7 +142,7 @@ const generateProgram = (type) => {
     rootDir = path_1.default.join(root_path, (_a = compilerOptions.rootDir) !== null && _a !== void 0 ? _a : "");
     const options = Object.assign(Object.assign({}, compilerOptions), { lib: ((_b = compilerOptions.lib) !== null && _b !== void 0 ? _b : []).map((lib) => `lib.${lib.toLowerCase()}.d.ts`), noEmitOnError: true, noImplicitAny: true, 
         //target: type === "esm" ? ts.ScriptTarget.ES2020 : ts.ScriptTarget.ES2017,
-        target: typescript_1.default.ScriptTarget.ESNext, module: type === "esm" ? typescript_1.default.ModuleKind.ES2020 : typescript_1.default.ModuleKind.Node16, moduleResolution: type === "esm" ? typescript_1.default.ModuleResolutionKind.Bundler : typescript_1.default.ModuleResolutionKind.Node16, listEmittedFiles: false, sourceMap: true, pretty: true, declaration: type === "esm", declarationMap: type === "esm", skipLibCheck: true, strict: true, esModuleInterop: true, forceConsistentCasingInFileNames: true, resolveJsonModule: true, removeComments: false, rootDir, outDir: path_1.default.join(dist_path, type), declarationDir: type === "esm" ? path_1.default.join(dist_path, "types") : undefined, typeRoots: [...((_c = compilerOptions.typeRoots) !== null && _c !== void 0 ? _c : []), "node_modules/@types", "path/to/your/typings"], paths: Object.assign({ "*": [`${rootDir.replace(/\\/gi, "/").replace(/\/$/gi, "")}/*`] }, Object.fromEntries(Object.entries((_d = compilerOptions.paths) !== null && _d !== void 0 ? _d : {}).map(([key, value]) => [key, value.map((v) => path_1.default.join(rootDir, v).replace(/\\/gi, "/").replace(/\/$/gi, ""))]))) });
+        target: typescript_1.default.ScriptTarget.ESNext, module: type === "esm" ? typescript_1.default.ModuleKind.ES2020 : typescript_1.default.ModuleKind.Node16, moduleResolution: type === "esm" ? typescript_1.default.ModuleResolutionKind.Bundler : typescript_1.default.ModuleResolutionKind.Node16, listEmittedFiles: false, sourceMap: true, pretty: true, declaration: type === "esm", declarationMap: type === "esm", skipLibCheck: true, strict: true, esModuleInterop: true, forceConsistentCasingInFileNames: true, resolveJsonModule: true, removeComments: false, noEmit: false, rootDir, outDir: path_1.default.join(dist_path, type), declarationDir: type === "esm" ? path_1.default.join(dist_path, "types") : undefined, typeRoots: [...((_c = compilerOptions.typeRoots) !== null && _c !== void 0 ? _c : []), "node_modules/@types", "path/to/your/typings"], paths: Object.assign({ "*": [`${rootDir.replace(/\\/gi, "/").replace(/\/$/gi, "")}/*`] }, Object.fromEntries(Object.entries((_d = compilerOptions.paths) !== null && _d !== void 0 ? _d : {}).map(([key, value]) => [key, value.map((v) => path_1.default.join(rootDir, v).replace(/\\/gi, "/").replace(/\/$/gi, ""))]))) });
     //const host = ts.createCompilerHost(options);
     const host = {
         getSourceFile: (fileName, languageVersion) => {
@@ -377,6 +377,12 @@ generateProgram("csj");
 const package_main = main_dir ? main_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_browser = browser_dir ? browser_dir.replace(rootDir, ".\\csj\\").replace(/\\+/gi, "/") : undefined;
 const package_module = module_dir ? module_dir.replace(rootDir, ".\\esm\\").replace(/\\+/gi, "/") : undefined;
+const resolveExtTs = (fileName) => {
+    return fileName
+        .replace(/\.ts$/gi, ".js")
+        .replace(/\.cts$/gi, ".cjs")
+        .replace(/\.mts$/gi, ".mjs");
+};
 createDirectories(dist_path);
 fs_extra_1.default.writeFileSync(path_1.default.resolve(dist_path, "package.json"), JSON.stringify({
     name: (_d = package_json.name) !== null && _d !== void 0 ? _d : "",
@@ -384,23 +390,23 @@ fs_extra_1.default.writeFileSync(path_1.default.resolve(dist_path, "package.json
     version: (_f = package_json.version) !== null && _f !== void 0 ? _f : "1.0.0",
     description: (_g = package_json.description) !== null && _g !== void 0 ? _g : "",
     comments: (_h = package_json.comments) !== null && _h !== void 0 ? _h : "",
-    main: package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js",
-    module: package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js",
+    main: resolveExtTs(package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js"),
+    module: resolveExtTs(package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js"),
     types: "./types/index.d.ts",
     exports: {
         ".": {
-            import: package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js",
-            require: package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js",
+            import: resolveExtTs(package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js"),
+            require: resolveExtTs(package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js"),
             types: "./types/index.d.ts",
         },
         "./esm": {
-            import: package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js",
-            require: package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js",
+            import: resolveExtTs(package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js"),
+            require: resolveExtTs(package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js"),
             types: "./types/index.d.ts",
         },
         "./csj": {
-            import: package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js",
-            require: package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js",
+            import: resolveExtTs(package_module !== null && package_module !== void 0 ? package_module : "./esm/index.js"),
+            require: resolveExtTs(package_main !== null && package_main !== void 0 ? package_main : "./csj/index.js"),
             types: "./types/index.d.ts",
         },
     },
